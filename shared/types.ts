@@ -7,6 +7,7 @@ export type CuratedItem = {
   sources?: string[];
   publishedAt?: string;
   fetchedAt: string;
+  whyItMatters?: string;
 };
 
 export type CurationResponse = {

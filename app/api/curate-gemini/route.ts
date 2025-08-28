@@ -1,64 +1,108 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { CurationResponse } from '@/shared/types';
 
-export async function GET() {
-  const mockItems: CurationResponse = {
-    items: [
-      {
-        id: "uuid-001",
-        title: "Anthropic、ブラウザAIアシスタント「Claude Code」を発表",
-        summary: "Chrome拡張として動作するAIがページ内容を理解し、要約や操作補助を提供。エンジニア向け機能も充実。",
-        sourceUrl: "https://example.com/anthropic-browser-assistant",
-        origin: "gemini",
-        sources: ["https://example.com/anthropic-browser-assistant"],
-        publishedAt: "2025-08-26T09:00:00.000Z",
-        fetchedAt: new Date().toISOString()
-      },
-      {
-        id: "uuid-002",
-        title: "OpenAIとAnthropic、安全性評価の結果を共同公開",
-        summary: "主要モデルの安全性評価を共同で実施し、透明性向上を目指す取り組み。業界標準化への第一歩。",
-        sourceUrl: "https://example.com/openai-anthropic-safety",
-        origin: "gemini",
-        sources: ["https://example.com/openai-anthropic-safety", "https://example.com/safety-review"],
-        publishedAt: "2025-08-25T14:30:00.000Z",
-        fetchedAt: new Date().toISOString()
-      },
-      {
-        id: "uuid-003",
-        title: "Google、Gemini 2.0をエンタープライズ向けに最適化",
-        summary: "企業向けGeminiモデルが大幅改善。RAG機能強化とコスト削減を同時実現し、導入企業が急増中。",
-        sourceUrl: "https://example.com/google-gemini-enterprise",
-        origin: "gemini",
-        sources: ["https://example.com/google-gemini-enterprise"],
-        publishedAt: "2025-08-24T11:00:00.000Z",
-        fetchedAt: new Date().toISOString()
-      },
-      {
-        id: "uuid-004",
-        title: "Microsoft、AI開発者向けの新プラットフォーム「Azure AI Studio」を発表",
-        summary: "統合開発環境でモデルの訓練からデプロイまでを一元管理。OpenAI GPTとの連携も強化。",
-        sourceUrl: "https://example.com/microsoft-azure-ai-studio",
-        origin: "gemini",
-        sources: ["https://example.com/microsoft-azure-ai-studio"],
-        publishedAt: "2025-08-23T16:45:00.000Z",
-        fetchedAt: new Date().toISOString()
-      },
-      {
-        id: "uuid-005",
-        title: "Meta、オープンソースLLM「Llama 4」の開発を発表",
-        summary: "次世代Llamaは推論能力を大幅強化。オープンソースコミュニティとの協業で商用利用も拡大予定。",
-        sourceUrl: "https://example.com/meta-llama-4",
-        origin: "gemini",
-        sources: ["https://example.com/meta-llama-4", "https://example.com/llama-roadmap"],
-        publishedAt: "2025-08-22T10:15:00.000Z",
-        fetchedAt: new Date().toISOString()
-      }
-    ]
-  };
+export const runtime = "nodejs";
 
-  // TODO: 実API接続（Gemini/Grok/HN）
-  // TODO: Firestore保存（curations/YYYY-MM-DD/items/{id}）
-  
-  return NextResponse.json(mockItems);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+export async function GET() {
+  try {
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash-exp" 
+    });
+
+    // 直近7日（UTC基準）
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const sinceISO = sevenDaysAgo.toISOString();
+
+    const MUST_SITES = [
+      "news.ycombinator.com",
+      "reddit.com/r/MachineLearning",
+      "reddit.com/r/LocalLLaMA",
+      "openai.com", "anthropic.com", "deepmind.google",
+      "ai.facebook.com", "huggingface.co",
+      "benbbites.com", "tldr.tech"
+    ];
+
+    const prompt = `
+あなたは調査担当です。経営層の議論材料として、直近7日間に公開された
+「生成AI／LLM」関連ニュースから **技術寄り**の重要トピックを10件選び、
+**HRビジネスに示唆があるものを優先**して要約してください。
+
+[前提]
+- 期間: ${sinceISO} 以降（直近7日）
+- 重点: 技術的インパクト（モデル/推論基盤/価格/評価/オープンソース/規制Tech）を重視
+- HR文脈: 採用/育成/評価/配置/生産性/ナレッジ/法務・労務への影響を簡潔に触れる
+- 出典: 一次情報または信頼媒体の実在URL必須（推測や死活不明URLは不可）
+- 参考サイト（必ず確認を試みる）: ${MUST_SITES.join(", ")}
+- 類似テーマは代表1件に統合し、重複を避ける
+
+[出力形式（JSON配列のみ、最大10件）]
+各要素:
+{
+  "title": "見出し（原語可）",
+  "summary": "事実のみの日本語要約（140字以内）",
+  "sources": ["https://...","https://..."],
+  "publishedAt": "YYYY-MM-DDTHH:mm:ssZ",
+  "whyItMatters": "経営/HRにとっての示唆を1行（断定は避け簡潔に）"
+}
+`.trim();
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
+    });
+
+    // JSONパース & 正規化
+    let raw: any[] = [];
+    try { 
+      const responseText = result.response.text();
+      raw = JSON.parse(responseText); 
+    } catch (error) { 
+      console.error('JSON parse error:', error);
+      raw = []; 
+    }
+
+    const items = (raw || [])
+      .filter((x: any) => x?.title && Array.isArray(x?.sources) && x.sources[0])
+      .slice(0, 10)
+      .map((x: any) => ({
+        id: crypto.randomUUID(),
+        title: String(x.title).trim(),
+        summary: String(x.summary || "").trim(),
+        sourceUrl: String(x.sources[0]),
+        sources: x.sources,
+        publishedAt: x.publishedAt || undefined,
+        whyItMatters: String(x.whyItMatters || "").trim(),
+        origin: "gemini" as const,
+        fetchedAt: new Date().toISOString()
+      }));
+
+    return NextResponse.json({ items } as CurationResponse);
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    
+    // フォールバック：モックデータ
+    const mockItems: CurationResponse = {
+      items: [
+        {
+          id: crypto.randomUUID(),
+          title: "APIエラーのため、モックデータを表示中",
+          summary: "Gemini APIへの接続に失敗しました。実際のニュースは取得できませんでした。",
+          sourceUrl: "https://example.com",
+          origin: "gemini",
+          sources: ["https://example.com"],
+          fetchedAt: new Date().toISOString(),
+          whyItMatters: "API接続の確認が必要です"
+        }
+      ]
+    };
+    
+    return NextResponse.json(mockItems);
+  }
 }

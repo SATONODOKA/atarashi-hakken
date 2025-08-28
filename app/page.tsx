@@ -140,6 +140,12 @@ export default function HomePage() {
                         他 {item.sources.length - 1} 件の関連ソース
                       </div>
                     )}
+                    
+                    {item.whyItMatters && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-800">
+                        💡 {item.whyItMatters}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
