@@ -4,9 +4,35 @@ import type { CurationResponse } from '@/shared/types';
 
 export const runtime = "nodejs";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// デバッグ用：環境変数の確認
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error('GEMINI_API_KEY is not set in environment variables');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey || 'dummy-key');
 
 export async function GET() {
+  // 環境変数チェック
+  if (!apiKey) {
+    console.error('API Key not found - returning mock data');
+    const mockItems: CurationResponse = {
+      items: [
+        {
+          id: crypto.randomUUID(),
+          title: "環境変数が設定されていません",
+          summary: "NetlifyでGEMINI_API_KEY環境変数を設定してください。Site settings → Environment variablesから追加できます。",
+          sourceUrl: "https://docs.netlify.com/environment-variables/overview/",
+          origin: "gemini",
+          sources: ["https://docs.netlify.com/environment-variables/overview/"],
+          fetchedAt: new Date().toISOString(),
+          whyItMatters: "API接続には環境変数の設定が必要です"
+        }
+      ]
+    };
+    return NextResponse.json(mockItems);
+  }
+
   try {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.0-flash-exp" 
