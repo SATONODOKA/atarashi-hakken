@@ -85,6 +85,8 @@ export async function GET() {
 
 `.trim();
 
+    // 一時的にWeb検索なしで動作（レート制限回避）
+    // TODO: レート制限解除後にGrounding（Web検索）を再有効化
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {

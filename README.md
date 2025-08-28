@@ -41,7 +41,7 @@ npm install
 `.env.local` ファイルを作成し、Gemini APIキーを設定：
 
 ```bash
-GEMINI_API_KEY=your_api_key_here
+GEMINI_API_KEY=AIzaSyD_p1_c2bTKJf7E5qUn3dNoDWloNgvqMZU
 ```
 
 APIキーの取得方法：
@@ -69,7 +69,7 @@ Netlifyにデプロイする際は、必ず以下の環境変数を設定して�
 4. `Add a variable` をクリック
 5. 以下を入力：
    - Key: `GEMINI_API_KEY`
-   - Value: `your_api_key_here`
+   - Value: `AIzaSyD_p1_c2bTKJf7E5qUn3dNoDWloNgvqMZU`
 6. `Add` をクリックして保存
 
 ### デプロイ手順
