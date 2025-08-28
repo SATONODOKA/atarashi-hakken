@@ -13,7 +13,14 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey || 'dummy-key');
 
 export async function GET() {
-  // 環境変数チェック
+  // 環境変数チェックとデバッグ情報
+  console.log('Environment check:', {
+    hasApiKey: !!apiKey,
+    keyLength: apiKey?.length,
+    keyPrefix: apiKey?.substring(0, 10),
+    nodeEnv: process.env.NODE_ENV
+  });
+
   if (!apiKey) {
     console.error('API Key not found - returning mock data');
     const mockItems: CurationResponse = {
@@ -34,8 +41,9 @@ export async function GET() {
   }
 
   try {
+    // より安定したモデルに変更
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-exp" 
+      model: "gemini-1.5-flash" 
     });
 
     // 直近7日（UTC基準）
@@ -111,20 +119,26 @@ export async function GET() {
 
     return NextResponse.json({ items } as CurationResponse);
   } catch (error) {
-    console.error('Gemini API error:', error);
+    console.error('Gemini API error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      apiKeyLength: apiKey?.length,
+      timestamp: new Date().toISOString()
+    });
     
-    // フォールバック：モックデータ
+    // フォールバック：より詳細なエラー情報付きモックデータ
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     const mockItems: CurationResponse = {
       items: [
         {
           id: crypto.randomUUID(),
-          title: "APIエラーのため、モックデータを表示中",
-          summary: "Gemini APIへの接続に失敗しました。実際のニュースは取得できませんでした。",
-          sourceUrl: "https://example.com",
+          title: "APIエラー: " + errorMessage,
+          summary: `Gemini APIエラー: ${errorMessage}。環境変数の確認、APIキーの有効性、モデル名の正確性をチェックしてください。`,
+          sourceUrl: "https://ai.google.dev/gemini-api/docs",
           origin: "gemini",
-          sources: ["https://example.com"],
+          sources: ["https://ai.google.dev/gemini-api/docs"],
           fetchedAt: new Date().toISOString(),
-          whyItMatters: "API接続の確認が必要です"
+          whyItMatters: "API接続の詳細調査が必要です"
         }
       ]
     };
