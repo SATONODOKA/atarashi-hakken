@@ -61,27 +61,28 @@ export async function GET() {
     ];
 
     const prompt = `
-あなたは調査担当です。経営層の議論材料として、直近7日間に公開された
-「生成AI／LLM」関連ニュースから **技術寄り**の重要トピックを10件選び、
-**HRビジネスに示唆があるものを優先**して要約してください。
+以下のサイトから直近7日間の「生成AI／LLM」関連の最新ニュースを5-8件選んで要約してください：
 
-[前提]
+参考サイト: ${MUST_SITES.join(", ")}, techcrunch.com, theverge.com, arstechnica.com
+
+[出力形式（JSON配列のみ）]
+[
+  {
+    "title": "実際のニュースタイトル",
+    "summary": "140字以内の日本語要約",
+    "sources": ["https://実際のURL"],
+    "publishedAt": "実際の公開日時（ISO形式）",
+    "whyItMatters": "HRビジネスへの示唆を1行で"
+  }
+]
+
+[重要な条件]
+- 実在するニュースのみ使用（架空のニュースは禁止）
+- URLは実在するもののみ
 - 期間: ${sinceISO} 以降（直近7日）
-- 重点: 技術的インパクト（モデル/推論基盤/価格/評価/オープンソース/規制Tech）を重視
-- HR文脈: 採用/育成/評価/配置/生産性/ナレッジ/法務・労務への影響を簡潔に触れる
-- 出典: 一次情報または信頼媒体の実在URL必須（推測や死活不明URLは不可）
-- 参考サイト（必ず確認を試みる）: ${MUST_SITES.join(", ")}
-- 類似テーマは代表1件に統合し、重複を避ける
+- 技術的な重要度が高いものを優先
+- 重複は避ける
 
-[出力形式（JSON配列のみ、最大10件）]
-各要素:
-{
-  "title": "見出し（原語可）",
-  "summary": "事実のみの日本語要約（140字以内）",
-  "sources": ["https://...","https://..."],
-  "publishedAt": "YYYY-MM-DDTHH:mm:ssZ",
-  "whyItMatters": "経営/HRにとっての示唆を1行（断定は避け簡潔に）"
-}
 `.trim();
 
     const result = await model.generateContent({
